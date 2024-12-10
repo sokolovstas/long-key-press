@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Key Hold Test</title>
+    <script src="https://unpkg.com/rxjs@7.8.1/dist/bundles/rxjs.umd.min.js"></script>
+    <style>
+        .progress-bar {
+            width: 300px;
+            height: 20px;
+            background-color: #eee;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px;
+        }
+
+        .progress {
+            width: 0%;
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.05s ease-out;
+        }
+
+        .status {
+            margin: 20px;
+            font-family: Arial, sans-serif;
+        }
+
+        .keycode {
+            font-size: 48px;
+            font-weight: bold;
+            margin: 20px;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div class="progress-bar">
+        <div class="progress" id="progress"></div>
+    </div>
+    <div class="status" id="status">Нажмите и удерживайте любую клавишу</div>
+    <div class="keycode" id="keycode">KeyCode: </div>
+
+    <script>
+        const { fromEvent, Subject } = rxjs;
+        const { tap, debounceTime, map, pairwise, filter, repeat } = rxjs.operators;
+
+        const progressBar = document.getElementById('progress');
+        const status = document.getElementById('status');
+        const keycode = document.getElementById('keycode');
+        const resetDelay = 300; // Время, после которого сбрасываем прогресс
+        const progressStep = 10; // Сколько процентов добавляем за одно нажатие
+
+        let progress = 0;
+        const progressComplete$ = new Subject();
+
+        const keyDown$ = fromEvent(document, 'keydown');
+
+        keyDown$.pipe(
+            map(event => event.keyCode),
+            pairwise(),
+            filter(([prevKey, currKey]) => prevKey === currKey),
+            tap(([_, key]) => {
+                progress += progressStep;
+                const currentProgress = Math.min(progress, 100);
+                progressBar.style.width = `${currentProgress}%`;
+                status.textContent = `Удерживается клавиша: ${key}`;
+                keycode.textContent = `KeyCode: ${event.keyCode}`;
+
+                if (currentProgress >= 100) {
+                    status.textContent = `Действие выполнено для клавиши: ${key}`;
+                    progressComplete$.next();
+                }
+            }),
+            debounceTime(resetDelay),
+            repeat()
+        ).subscribe(() => {
+            progress = 0;
+            progressBar.style.width = '0%';
+            status.textContent = 'Нажмите и удерживайте любую клавишу';
+            keycode.textContent = 'KeyCode: ';
+        });
+    </script>
+</body>
+</html>
